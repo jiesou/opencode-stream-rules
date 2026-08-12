@@ -1,8 +1,6 @@
 import type { Plugin } from "@opencode-ai/plugin"
 import { RULES } from "./rules.ts"
 
-export { isBlockedTmp } from "./rules.ts"
-
 export interface Rule {
   match: (v: string) => boolean
   notice: string
