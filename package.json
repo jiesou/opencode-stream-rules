@@ -1,0 +1,22 @@
+{
+  "name": "opencode-stream-rules",
+  "version": "0.1.0",
+  "description": "Inject rules when needed, without wasting context.",
+  "type": "module",
+  "main": "index.ts",
+  "exports": {
+    "./server": "./index.ts"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "rules",
+    "guardrail",
+    "just-in-time",
+    "stream-rules"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "@opencode-ai/plugin": "^1.0.0"
+  }
+}
