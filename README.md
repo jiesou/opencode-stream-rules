@@ -29,11 +29,19 @@ You need to write the rules in your own `.ts` file. This plugin WON'T WORK by de
 
 You can start with:
 
+1. Locate the this plugin's path
+
+such as: `~/.cache/opencode/packages/opencode-stream-rules@latest/node_modules/opencode-stream-rules`
+
+alternatively, if it's a local installation: `~/.config/opencode/plugins/opencode-stream-rules`
+
+2. Write rules
+
 ```sh
 mv rules/rules.ts.example rules/rules.local.ts
 ```
 
-- Rules live in the `rules/` directory next to this plugin (e.g. `~/.config/opencode/plugins/stream-rules`)
+- Rules live in the `rules/` directory next to this plugin
   - Files starting with `_` are skipped.
   - To point at a different rules directory: `{ "plugin": [["opencode-stream-rules", { "rules": "path/to/your/rules" }]] }`
 - Using `.ts` as rules makes it easier to write pattern match functions without being limited to regx. Code is cheap; let your agent write the code!
