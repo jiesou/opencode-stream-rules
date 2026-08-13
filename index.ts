@@ -6,22 +6,14 @@ import { readdir } from "node:fs/promises"
 export interface Rule {
   match: (v: string) => boolean
   prompt: string
-  reject?: boolean  // feature not bug: only reject first time, agent call again to bypass
+  reject?: boolean // only first toolcall; retry is allowed
 }
 
 const DEFAULT_RULES_DIR = join(dirname(fileURLToPath(import.meta.url)), "rules")
 
-/** Load `*.ts` / `*.js` from a directory. Default: `./rules` next to this file. */
 export async function loadUserRules(dir = DEFAULT_RULES_DIR): Promise<Rule[]> {
-  let names: string[]
-  try {
-    names = await readdir(dir)
-  } catch {
-    return []
-  }
-
+  const names = await readdir(dir).catch(() => [] as string[])
   const rules: Rule[] = []
-  // skip files start with `_`
   for (const name of names.filter((n) => /\.(ts|js)$/.test(n) && !n.startsWith("_")).sort()) {
     try {
       const mod = await import(pathToFileURL(join(dir, name)).href)
@@ -33,10 +25,11 @@ export async function loadUserRules(dir = DEFAULT_RULES_DIR): Promise<Rule[]> {
   return rules
 }
 
-function collectStrings(v: unknown, out: string[]): void {
-  if (typeof v === "string") out.push(v)
-  else if (Array.isArray(v)) v.forEach((x) => collectStrings(x, out))
-  else if (v && typeof v === "object") Object.values(v).forEach((x) => collectStrings(x, out))
+function strings(v: unknown): string[] {
+  if (typeof v === "string") return [v]
+  if (Array.isArray(v)) return v.flatMap(strings)
+  if (v && typeof v === "object") return Object.values(v).flatMap(strings)
+  return []
 }
 
 const notified = new Set<string>()
@@ -46,23 +39,18 @@ export const StreamRules: Plugin = async ({ client }, options) => {
 
   return {
     "tool.execute.before": async (input, output) => {
-      const parts: string[] = []
-      collectStrings(output.args, parts)
-      const ruleIndex = RULES.findIndex((r) => r.match(parts.join(" ")))
-      if (ruleIndex === -1) return
+      const i = RULES.findIndex((r) => r.match(strings(output.args).join(" ")))
+      if (i === -1) return
 
-      const rule = RULES[ruleIndex]
-      const key = `${input.sessionID}#${ruleIndex}`
+      const key = `${input.sessionID}#${i}`
       if (notified.has(key)) return
       notified.add(key)
 
-      if (rule.reject) throw new Error(rule.prompt)
+      const { reject, prompt } = RULES[i]
+      if (reject) throw new Error(prompt)
       await client.session.prompt({
         path: { id: input.sessionID },
-        body: {
-          noReply: true,
-          parts: [{ type: "text", text: `SYSTEM NOTICE: ${rule.prompt}` }],
-        },
+        body: { noReply: true, parts: [{ type: "text", text: `SYSTEM NOTICE: ${prompt}` }] },
       })
     },
   }
