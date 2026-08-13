@@ -2,8 +2,6 @@
 
 Inject rules when needed, without wasting context.
 
-The agent learns the rule exactly when it needs it.
-
 ## Install
 
 ```sh
@@ -13,48 +11,55 @@ opencode plugin opencode-stream-rules
 Or add to `opencode.json`:
 
 ```json
-{
-  "plugin": ["opencode-stream-rules"]
-}
+{ "plugin": ["opencode-stream-rules"] }
 ```
 
-## Configure rules
+## After installing
 
-Your rules live in **`rules.ts`** — plain TypeScript/JavaScript, so a `match`
-can be any function, not just a regex. Edit the `RULES` array; each rule has a
-`match` predicate, a `notice`, and an optional `reject`.
+You need to write the rules in your own `.ts` file. This plugin WON'T WORK by default until you edit the rules.
+
+- Rules live in the `rules/` directory next to this plugin (e.g. `~/.config/opencode/plugins/stream-rules`)
+  - To point at a different rules directory: `{ "plugin": [["opencode-stream-rules", { "rules": "path/to/your/rules" }]] }`
+- Files starting with `_` are skipped.
+- Using `.ts` as rules makes it easier to write match functions without being limited to regx.
+
+You can start with:
+
+```sh
+mv rules/rules.ts.example rules/rules.local.ts
+```
+
+### Writing rules
+
+Example:
 
 ```ts
-export const RULES: Rule[] = [
+// rules/rules.local.ts
+import type { Rule } from "../index.ts"
+
+export default [
   {
-    match: (v) => v.includes("pip") && v.includes("install"),
+    match: (v) =>
+      v.includes("pip") &&
+      v.includes("install") &&
+      !v.includes("uv pip") &&
+      !v.includes("uvx"),
     reject: true,
-    notice: "Use `uvx` or `uv venv` + `uv pip` instead of `pip install` directly",
+    prompt: "Use `uvx` or `uv venv` + `uv pip` instead of `pip install` directly",
   },
   {
     match: (v) => v.includes("pdf"),
-    notice: "Use the `markitdown` skill to read PDF files.",
+    prompt: "Use the `markitdown` skill to read PDF files.",
   },
+  // add your rules here
 ]
 ```
 
-### Rule fields
+A rule has three fields:
 
-| field    | type                  | description                                                        |
-| -------- | --------------------- | ------------------------------------------------------------------ |
-| `match`  | `(v: string) => bool` | **Required.** Predicate over the joined tool-call args.            |
-| `notice` | `string`              | **Required.** The `SYSTEM NOTICE` injected into the conversation.  |
-| `reject` | `boolean`             | If `true`, throw and block the tool call instead of injecting.     |
+| field    | required | description                                                          |
+| -------- | -------- | -------------------------------------------------------------------- |
+| `match`  | ✅       | (v: string) => boolean, any responses/toolcalls returned by LLM will attempted to be matched    |
+| `prompt` | ✅       | The prompt for steering                  |
+| `reject` |          | If `true`, prevent toolcalls first, instead of just steering |
 
-The `match` predicate receives all string values of the tool call args joined
-with a space (so `bash` command, `read` filePath, etc. are all covered). A
-handful of helpers — `wildcard`, `isTmpSubPath`, `isBlockedTmp` — are exported
-from `rules.ts` for convenience.
-
-### Reject semantics
-
-`reject: true` throws on the *first* match so the tool call is aborted and the
-agent sees the notice as the error. The rule is then marked as notified for
-the session — if the agent insists and calls the same command again, it passes
-through. Rules that don't reject inject the notice as a hidden message instead,
-without interrupting.
